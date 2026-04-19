@@ -54,6 +54,24 @@ function ok(text: string) {
 export function createTicketsServer(deps: ToolDeps) {
   const { store, github, tags, discord } = deps;
 
+  // Dedup: Claude occasionally emits the same tool_use block twice in one turn.
+  // Track recent content per thread per tool; skip if we just posted the same thing.
+  const DEDUP_WINDOW_MS = 30_000;
+  const recentPosts = new Map<string, { content: string; time: number }>();
+  const isDuplicate = (key: string, content: string) => {
+    const last = recentPosts.get(key);
+    const now = Date.now();
+    if (last && last.content === content && now - last.time < DEDUP_WINDOW_MS) return true;
+    recentPosts.set(key, { content, time: now });
+    // Opportunistic cleanup — keep the map small.
+    if (recentPosts.size > 256) {
+      for (const [k, v] of recentPosts) {
+        if (now - v.time > DEDUP_WINDOW_MS) recentPosts.delete(k);
+      }
+    }
+    return false;
+  };
+
   return createSdkMcpServer({
     name: "tickets",
     version: "1.0.0",
@@ -65,6 +83,10 @@ export function createTicketsServer(deps: ToolDeps) {
         async ({ content }) => {
           const tid = currentThreadId();
           if (!tid) throw new Error("No active thread for this tool call");
+          if (isDuplicate(`interview_reply:${tid}`, content)) {
+            log.warn({ tid }, "interview_reply: duplicate content within 30s, skipping");
+            return ok("Reply posted. (duplicate suppressed)");
+          }
           await discord.postMessage(tid, content);
           if (store.getPhase(tid) === "new") store.setPhase(tid, "interviewing");
           return ok("Reply posted.");
@@ -82,6 +104,11 @@ export function createTicketsServer(deps: ToolDeps) {
           const tid = currentThreadId();
           if (!tid) throw new Error("No active thread for this tool call");
           const draft = { title, body, labels: suggested_labels };
+          const signature = JSON.stringify(draft);
+          if (isDuplicate(`present_draft:${tid}`, signature)) {
+            log.warn({ tid }, "present_draft: duplicate draft within 30s, skipping");
+            return ok("Draft posted. (duplicate suppressed)");
+          }
           store.setDraft(tid, draft);
           await discord.postDraft(tid, draft);
           store.setPhase(tid, "awaiting_approval");
