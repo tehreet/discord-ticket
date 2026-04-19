@@ -64,6 +64,24 @@ export function createDiscord(deps: ClientDeps) {
         await thread.setAppliedTags([...current, tagId]);
       }
     },
+    async setAppliedTags(threadId, tagIds) {
+      const ch = await client.channels.fetch(threadId);
+      if (!ch?.isThread()) throw new Error(`Channel ${threadId} is not a thread`);
+      const thread = ch as ForumThreadChannel;
+      const current = thread.appliedTags ?? [];
+      const sortedNew = [...tagIds].sort();
+      const sortedCurrent = [...current].sort();
+      if (sortedNew.length === sortedCurrent.length &&
+          sortedNew.every((id, i) => id === sortedCurrent[i])) {
+        return; // no-op
+      }
+      await thread.setAppliedTags(tagIds);
+    },
+    async getAppliedTagIds(threadId) {
+      const ch = await client.channels.fetch(threadId);
+      if (!ch?.isThread()) throw new Error(`Channel ${threadId} is not a thread`);
+      return (ch as ForumThreadChannel).appliedTags ?? [];
+    },
     async closeThread(threadId) {
       const ch = await client.channels.fetch(threadId);
       if (!ch?.isThread()) throw new Error(`Channel ${threadId} is not a thread`);

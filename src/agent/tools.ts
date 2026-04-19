@@ -9,7 +9,35 @@ export interface DiscordPoster {
   postMessage(threadId: string, content: string): Promise<void>;
   postDraft(threadId: string, draft: { title: string; body: string; labels: string[] }): Promise<void>;
   applyTag(threadId: string, tagId: string): Promise<void>;
+  setAppliedTags(threadId: string, tagIds: string[]): Promise<void>;
+  getAppliedTagIds(threadId: string): Promise<string[]>;
   closeThread(threadId: string): Promise<void>;
+}
+
+// State tags are mutually exclusive — applying one should remove the others.
+// Category tags (feature/bug/question) are left alone.
+const STATE_TAGS = ["needs-info", "ready-to-file", "filed", "duplicate", "already-done", "wont-do"] as const;
+type StateTag = typeof STATE_TAGS[number];
+
+function isStateTag(name: string): name is StateTag {
+  return (STATE_TAGS as readonly string[]).includes(name);
+}
+
+async function applyStateTag(
+  tid: string,
+  newTagName: StateTag,
+  tags: TagIndex,
+  discord: DiscordPoster,
+): Promise<void> {
+  const newTagId = await tags.idFor(newTagName);
+  const [currentIds, stateTagIds] = await Promise.all([
+    discord.getAppliedTagIds(tid),
+    Promise.all(STATE_TAGS.map(n => tags.idFor(n).catch(() => null))),
+  ]);
+  const stateIdSet = new Set(stateTagIds.filter((x): x is string => x !== null));
+  const keep = currentIds.filter(id => !stateIdSet.has(id));
+  keep.push(newTagId);
+  await discord.setAppliedTags(tid, keep);
 }
 
 export interface ToolDeps {
@@ -58,21 +86,24 @@ export function createTicketsServer(deps: ToolDeps) {
           await discord.postDraft(tid, draft);
           store.setPhase(tid, "awaiting_approval");
           try {
-            const readyId = await tags.idFor("ready-to-file");
-            await discord.applyTag(tid, readyId);
+            await applyStateTag(tid, "ready-to-file", tags, discord);
           } catch (err) { log.warn({ err }, "failed to apply ready-to-file tag"); }
           return ok("Draft posted. Phase=awaiting_approval.");
         }
       ),
       tool(
         "apply_tag",
-        "Apply a forum tag to the current Discord thread. The thread is inferred from conversation context — do not pass any thread ID. Valid tag names: 'needs-info', 'ready-to-file', 'filed', 'duplicate', 'already-done', 'wont-do'.",
+        "Set the state tag on the current Discord thread. Valid tag names: 'needs-info', 'ready-to-file', 'filed', 'duplicate', 'already-done', 'wont-do'. These are mutually exclusive — applying one automatically removes any previous state tag. Category tags (feature/bug/question) are preserved. The thread is inferred from conversation context — do not pass any thread ID.",
         { tag_name: z.string() },
         async ({ tag_name }) => {
           const tid = currentThreadId();
           if (!tid) throw new Error("No active thread for this tool call");
-          const id = await tags.idFor(tag_name);
-          await discord.applyTag(tid, id);
+          if (isStateTag(tag_name)) {
+            await applyStateTag(tid, tag_name, tags, discord);
+          } else {
+            const id = await tags.idFor(tag_name);
+            await discord.applyTag(tid, id);
+          }
           return ok(`Applied tag '${tag_name}'.`);
         }
       ),

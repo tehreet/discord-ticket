@@ -38,10 +38,12 @@ const ticketsServer = createTicketsServer({
   // Safe because discord.start() resolves before any enqueue() call.
   tags: { idFor: async (n) => tagIndex!.idFor(n), refresh: () => tagIndex!.refresh() },
   discord: {
-    postMessage:  async (t, c) => poster!.postMessage(t, c),
-    postDraft:    async (t, d) => poster!.postDraft(t, d),
-    applyTag:     async (t, i) => poster!.applyTag(t, i),
-    closeThread:  async (t)    => poster!.closeThread(t),
+    postMessage:      async (t, c)  => poster!.postMessage(t, c),
+    postDraft:        async (t, d)  => poster!.postDraft(t, d),
+    applyTag:         async (t, i)  => poster!.applyTag(t, i),
+    setAppliedTags:   async (t, is) => poster!.setAppliedTags(t, is),
+    getAppliedTagIds: async (t)     => poster!.getAppliedTagIds(t),
+    closeThread:      async (t)     => poster!.closeThread(t),
   },
 });
 
