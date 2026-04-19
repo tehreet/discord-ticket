@@ -77,6 +77,7 @@ export function createDiscord(deps: ClientDeps) {
   });
 
   client.on(Events.ThreadCreate, async (thread) => {
+    log.info({ threadId: thread.id, parentId: thread.parentId, configuredForum: deps.config.DISCORD_FORUM_CHANNEL_ID, name: thread.name }, "thread_create event");
     if (thread.parentId !== deps.config.DISCORD_FORUM_CHANNEL_ID) return;
     log.info({ threadId: thread.id, name: thread.name }, "thread created");
     deps.store.insertThread(thread.id);
@@ -84,6 +85,8 @@ export function createDiscord(deps: ClientDeps) {
 
   client.on(Events.MessageCreate, async (msg: Message) => {
     if (msg.author.bot) return;
+    const parentId = msg.channel.isThread() ? msg.channel.parentId : null;
+    log.info({ messageId: msg.id, channelId: msg.channelId, isThread: msg.channel.isThread(), parentId, configuredForum: deps.config.DISCORD_FORUM_CHANNEL_ID, contentLength: msg.content.length }, "message_create event");
     if (!msg.channel.isThread()) return;
     if (msg.channel.parentId !== deps.config.DISCORD_FORUM_CHANNEL_ID) return;
 
