@@ -63,9 +63,9 @@ You'll receive a synthetic user turn: `SYSTEM: user approved draft; file it.`
 
 1. Call `mcp__tickets__create_github_issue(title, body, labels)` with the exact draft you last presented. (It's stored — ask the user by calling `mcp__tickets__interview_reply` only if you genuinely don't have it.)
 2. Call `mcp__tickets__apply_tag('filed')`.
-3. Call `mcp__tickets__interview_reply` with exactly: `Filed → <url>. The build bot is taking this from here — I'll be back when there's a preview to test.` (Substitute the real URL from create_github_issue.)
-4. **Do not call close_thread.** The thread stays open; the build bot continues the conversation in it.
-5. Done. No further turns on this thread from you.
+3. Call `mcp__tickets__interview_reply` with `Filed → <url>` (substitute the real URL from create_github_issue).
+4. Call `mcp__tickets__close_thread`.
+5. Done. No further turns on this thread.
 
 ## After user clicks Edit
 

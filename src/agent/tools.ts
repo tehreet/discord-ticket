@@ -171,15 +171,12 @@ export function createTicketsServer(deps: ToolDeps) {
           const url = await github.createIssue({ title, body, labels });
           const match = url.match(/\/issues\/(\d+)/);
           if (match) store.setIssueNumber(tid, parseInt(match[1]!, 10));
-          // Hand the thread off to build-bot: further messages from the user
-          // will be routed to its inbox (see client.ts messageCreate dispatcher).
-          store.setOwner(tid, "build-bot");
           return ok(url);
         }
       ),
       tool(
         "close_thread",
-        "Archive + lock the current Discord thread. The thread is inferred from conversation context — do not pass any thread ID. For `duplicate`, `already-done`, or `wont-do` outcomes only. Do NOT call after `filed` — build-bot continues the conversation in that thread.",
+        "Archive + lock the current Discord thread. The thread is inferred from conversation context — do not pass any thread ID. Call this after `filed`, `duplicate`, `already-done`, or `wont-do` outcomes. Terminal action.",
         { reason: z.string().min(1).describe("Brief reason for closing, e.g. 'filed as #42' or 'duplicate of #47'") },
         async ({ reason: _reason }) => {
           const tid = currentThreadId();
