@@ -97,6 +97,7 @@ export function createTicketsServer(deps: ToolDeps) {
           const tid = currentThreadId();
           if (!tid) throw new Error("No active thread for this tool call");
           const phase = store.getPhase(tid);
+          if (phase === null) throw new Error(`Thread ${tid} not found in store`);
           if (phase !== "approved") throw new Error(`Cannot file in phase '${phase}'`);
           const url = await github.createIssue({ title, body, labels });
           const match = url.match(/\/issues\/(\d+)/);
