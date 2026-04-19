@@ -34,7 +34,8 @@ export function createAgentRunner(deps: RunnerDeps) {
 
     // Wrap enforcer to match HookCallback signature: (input, toolUseID, options) => Promise<HookJSONOutput>
     const hookCb: HookCallback = async (input, _toolUseID, _options) => {
-      return enforcer(input as { tool_name: string; tool_input: unknown });
+      if (input.hook_event_name !== "PreToolUse") return { decision: "approve" };
+      return enforcer(input as unknown as { tool_name: string; tool_input: unknown });
     };
 
     await withThreadContext(threadId, async () => {
@@ -83,9 +84,15 @@ export function createAgentRunner(deps: RunnerDeps) {
   return {
     enqueue(threadId: string, userMessage: string): Promise<void> {
       const prev = queues.get(threadId) ?? Promise.resolve();
-      const next = prev
+      const next: Promise<void> = prev
+        // suppress prev rejection so this turn always runs even if the prior one threw
         .catch(() => {})
-        .then(() => runTurn(threadId, userMessage));
+        .then(async () => {
+          try { await runTurn(threadId, userMessage); }
+          finally {
+            if (queues.get(threadId) === next) queues.delete(threadId);
+          }
+        });
       queues.set(threadId, next);
       return next;
     },
