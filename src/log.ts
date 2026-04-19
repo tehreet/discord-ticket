@@ -1,12 +1,9 @@
 import pino from "pino";
 
-function getLogLevel(): string {
-  try {
-    const { loadConfig } = require("./config") as typeof import("./config");
-    return loadConfig().LOG_LEVEL;
-  } catch {
-    return "info";
-  }
-}
+const VALID_LEVELS = ["trace", "debug", "info", "warn", "error"] as const;
+const envLevel = process.env.LOG_LEVEL ?? "info";
+const level = (VALID_LEVELS as readonly string[]).includes(envLevel)
+  ? envLevel
+  : "info";
 
-export const log = pino({ level: getLogLevel() });
+export const log = pino({ level });
