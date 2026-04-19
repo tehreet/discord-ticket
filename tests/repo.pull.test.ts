@@ -1,6 +1,6 @@
 import { describe, test, expect, mock } from "bun:test";
 import { createRepoPuller } from "../src/repo/pull";
-import type { Exec } from "../src/github/issues";
+import type { Exec } from "../src/repo/pull";
 
 describe("createRepoPuller", () => {
   test("calls git pull --ff-only in the configured path", async () => {

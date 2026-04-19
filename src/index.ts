@@ -2,8 +2,8 @@
 import { loadConfig } from "./config";
 import { log } from "./log";
 import { SessionStore } from "./storage/store";
-import { createGithub, bunExec } from "./github/issues";
-import { createRepoPuller } from "./repo/pull";
+import { createGithub, resolveGithubToken } from "./github/issues";
+import { createRepoPuller, bunExec } from "./repo/pull";
 import { loadSkill } from "./agent/skill";
 import { createTicketsServer } from "./agent/tools";
 import type { DiscordPoster } from "./agent/tools";
@@ -15,7 +15,8 @@ import { fileURLToPath } from "node:url";
 
 const cfg = loadConfig();
 const store = new SessionStore(cfg.STATE_DB_PATH);
-const github = createGithub({ repo: cfg.GITHUB_REPO, exec: bunExec });
+const githubToken = await resolveGithubToken();
+const github = createGithub({ repo: cfg.GITHUB_REPO, token: githubToken });
 const pullRepo = createRepoPuller({ path: cfg.REPO_CLONE_PATH, exec: bunExec });
 
 const here = dirname(fileURLToPath(import.meta.url));

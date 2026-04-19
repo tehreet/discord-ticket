@@ -1,5 +1,7 @@
-import type { Exec } from "../github/issues";
 import { log } from "../log";
+
+export interface ExecResult { stdout: string; stderr: string; code: number; }
+export type Exec = (cmd: string, args: string[]) => Promise<ExecResult>;
 
 export function createRepoPuller({ path, exec }: { path: string; exec: Exec }) {
   return async (): Promise<void> => {
@@ -11,3 +13,13 @@ export function createRepoPuller({ path, exec }: { path: string; exec: Exec }) {
     }
   };
 }
+
+export const bunExec: Exec = async (cmd, args) => {
+  const proc = Bun.spawn([cmd, ...args], { stdout: "pipe", stderr: "pipe" });
+  const [stdout, stderr] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+  ]);
+  const code = await proc.exited;
+  return { stdout, stderr, code };
+};

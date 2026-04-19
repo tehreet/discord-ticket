@@ -7,15 +7,33 @@ export interface ButtonDeps {
   enqueue: (threadId: string, message: string) => Promise<void>;
 }
 
-export function handleButton(deps: ButtonDeps, interaction: ButtonInteraction): Promise<void> {
+const FOOTERS: Record<string, string> = {
+  approve: "Approved — filing on GitHub…",
+  edit:    "Edit requested — send your changes in the thread.",
+  reject:  "Rejected — thread will be closed.",
+};
+
+export async function handleButton(deps: ButtonDeps, interaction: ButtonInteraction): Promise<void> {
   const [action, threadId] = interaction.customId.split(":");
   if (!action || !threadId) {
     log.warn({ customId: interaction.customId }, "unrecognized button customId");
-    return interaction.deferUpdate().then(() => undefined);
+    await interaction.deferUpdate();
+    return;
   }
 
-  // MUST ack within 3 seconds.
-  const ack = interaction.deferUpdate().then(() => undefined);
+  // Combined ack + edit: removes the buttons from the draft card and appends
+  // a footer line reflecting the action taken. Must complete within 3s.
+  const existing = interaction.message.embeds[0];
+  const footer = FOOTERS[action];
+  const embedJson = existing ? { ...existing.toJSON() } : null;
+  if (embedJson) {
+    if (footer) embedJson.footer = { text: footer };
+    else if (embedJson.footer === null) delete embedJson.footer;
+  }
+  await interaction.update({
+    components: [],
+    embeds: embedJson ? [embedJson] : [],
+  });
 
   if (action === "approve") {
     deps.store.setPhase(threadId, "approved");
@@ -32,6 +50,4 @@ export function handleButton(deps: ButtonDeps, interaction: ButtonInteraction): 
   } else {
     log.warn({ action }, "unknown button action");
   }
-
-  return ack;
 }
