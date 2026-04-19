@@ -18,7 +18,7 @@ describe("enforcePhaseGate", () => {
       const hook = enforcePhaseGate("t1", makeStoreStub(phase));
       const r = await hook({ tool_name: "mcp__tickets__create_github_issue", tool_input: {} });
       expect(r.decision).toBe("block");
-      expect(r.reason).toMatch(/phase/);
+      expect((r as { decision: "block"; reason: string }).reason).toMatch(/phase/);
     }
   });
 

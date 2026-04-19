@@ -1,5 +1,6 @@
 import { describe, test, expect, mock } from "bun:test";
 import { createGithub } from "../src/github/issues";
+import type { Exec } from "../src/github/issues";
 
 describe("github/issues", () => {
   test("searchIssues calls gh with correct args and returns parsed JSON", async () => {
@@ -21,7 +22,7 @@ describe("github/issues", () => {
   });
 
   test("createIssue shells gh issue create and returns the URL", async () => {
-    const exec = mock(async () => ({
+    const exec = mock<Exec>(async () => ({
       stdout: "https://github.com/o/r/issues/112\n",
       stderr: "", code: 0,
     }));

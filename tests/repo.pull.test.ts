@@ -1,9 +1,10 @@
 import { describe, test, expect, mock } from "bun:test";
 import { createRepoPuller } from "../src/repo/pull";
+import type { Exec } from "../src/github/issues";
 
 describe("createRepoPuller", () => {
   test("calls git pull --ff-only in the configured path", async () => {
-    const exec = mock(async () => ({ stdout: "", stderr: "", code: 0 }));
+    const exec = mock<Exec>(async () => ({ stdout: "", stderr: "", code: 0 }));
     const pull = createRepoPuller({ path: "/tmp/clone", exec });
     await pull();
     const [cmd, args] = exec.mock.calls[0]!;
