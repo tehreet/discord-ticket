@@ -112,6 +112,24 @@ export function createDiscord(deps: ClientDeps) {
 
     const body = msg.content.trim();
     if (!body) return;
+
+    // If ownership has been transferred to build-bot, don't route to our agent.
+    // Write to the shared inbox; build-bot picks it up.
+    const owner = deps.store.getOwner(msg.channelId);
+    if (owner === "build-bot") {
+      deps.store.insertInbox({
+        recipient: "build-bot",
+        thread_id: msg.channelId,
+        message_id: msg.id,
+        author_id: msg.author.id,
+        content: body,
+      });
+      log.info({ threadId: msg.channelId, messageId: msg.id }, "message routed to build-bot inbox");
+      // v0.5: no live poke to build-bot for free-text replies. Iteration loop
+      // isn't wired up yet; inbox rows accumulate for future pickup.
+      return;
+    }
+
     log.info({ threadId: msg.channelId, messageId: msg.id }, "message received");
     deps.enqueue(msg.channelId, body).catch(err =>
       log.error({ err, threadId: msg.channelId }, "enqueue failed"));
