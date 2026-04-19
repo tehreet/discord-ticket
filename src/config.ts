@@ -7,8 +7,8 @@ const Schema = z.object({
   DISCORD_FORUM_CHANNEL_ID: z.string().min(1),
   ANTHROPIC_API_KEY: z.string().min(1),
   GITHUB_REPO: z.string().regex(/^[^/\s]+\/[^/\s]+$/, "GITHUB_REPO must be 'owner/repo'"),
-  REPO_CLONE_PATH: z.string().min(1),
-  STATE_DB_PATH: z.string().min(1),
+  REPO_CLONE_PATH: z.string().min(1).default(`${process.env.HOME ?? "/tmp"}/.discord-ticket/promptionary`),
+  STATE_DB_PATH: z.string().min(1).default(`${process.env.HOME ?? "/tmp"}/.discord-ticket/state.db`),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error"]).default("info"),
 });
 
