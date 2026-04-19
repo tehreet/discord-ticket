@@ -77,7 +77,6 @@ export function createDiscord(deps: ClientDeps) {
   });
 
   client.on(Events.ThreadCreate, async (thread) => {
-    log.info({ threadId: thread.id, parentId: thread.parentId, configuredForum: deps.config.DISCORD_FORUM_CHANNEL_ID, name: thread.name }, "thread_create event");
     if (thread.parentId !== deps.config.DISCORD_FORUM_CHANNEL_ID) return;
     log.info({ threadId: thread.id, name: thread.name }, "thread created");
     deps.store.insertThread(thread.id);
@@ -85,8 +84,6 @@ export function createDiscord(deps: ClientDeps) {
 
   client.on(Events.MessageCreate, async (msg: Message) => {
     if (msg.author.bot) return;
-    const parentId = msg.channel.isThread() ? msg.channel.parentId : null;
-    log.info({ messageId: msg.id, channelId: msg.channelId, isThread: msg.channel.isThread(), parentId, configuredForum: deps.config.DISCORD_FORUM_CHANNEL_ID, contentLength: msg.content.length }, "message_create event");
     if (!msg.channel.isThread()) return;
     if (msg.channel.parentId !== deps.config.DISCORD_FORUM_CHANNEL_ID) return;
 
@@ -121,27 +118,18 @@ export function createDiscord(deps: ClientDeps) {
 
 async function replayMissedMessages(client: Client, deps: ClientDeps) {
   const active = deps.store.listActiveThreads();
-  log.info({ count: active.length, threadIds: active.map(r => r.thread_id) }, "replay: active threads");
   for (const row of active) {
     try {
-      log.info({ threadId: row.thread_id }, "replay: fetching thread");
       const ch = await client.channels.fetch(row.thread_id);
-      if (!ch?.isThread()) {
-        log.warn({ threadId: row.thread_id, type: ch?.type }, "replay: channel not a thread, skipping");
-        continue;
-      }
+      if (!ch?.isThread()) continue;
       const after = row.last_seen_message_id ?? "0";
       const messages = await ch.messages.fetch({ after, limit: 50 });
-      log.info({ threadId: row.thread_id, raw: messages.size, after }, "replay: fetched messages");
       const sorted = Array.from(messages.values())
         .filter(m => !m.author.bot && m.content.trim())
         .sort((a, b) => BigInt(a.id) < BigInt(b.id) ? -1 : 1);
-      log.info({ threadId: row.thread_id, sortedCount: sorted.length }, "replay: after filter");
       for (const m of sorted) {
         deps.store.setLastSeenMessage(row.thread_id, m.id);
-        log.info({ threadId: row.thread_id, messageId: m.id }, "replay: enqueueing");
         await deps.enqueue(row.thread_id, m.content.trim());
-        log.info({ threadId: row.thread_id, messageId: m.id }, "replay: enqueue returned");
       }
       if (sorted.length > 0) {
         log.info({ threadId: row.thread_id, count: sorted.length }, "replayed missed messages");
@@ -150,5 +138,4 @@ async function replayMissedMessages(client: Client, deps: ClientDeps) {
       log.warn({ err, threadId: row.thread_id }, "replay failed for thread");
     }
   }
-  log.info("replay: complete");
 }

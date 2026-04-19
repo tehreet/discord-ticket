@@ -38,10 +38,10 @@ export function createAgentRunner(deps: RunnerDeps) {
       return enforcer(input as unknown as { tool_name: string; tool_input: unknown });
     };
 
+    const framedPrompt = `[Discord thread ID: ${threadId}]\n\n${userMessage}`;
     await withThreadContext(threadId, async () => {
-      log.info({ threadId, hasSession: sessionId !== null, promptPreview: userMessage.slice(0, 80) }, "agent: starting query");
       for await (const msg of query({
-        prompt: userMessage,
+        prompt: framedPrompt,
         options: {
           systemPrompt: deps.systemPrompt,
           cwd: deps.cwd,
@@ -53,12 +53,17 @@ export function createAgentRunner(deps: RunnerDeps) {
           },
         },
       })) {
-        log.info({ threadId, msgType: (msg as any).type, msg: JSON.stringify(msg).slice(0, 500) }, "agent: sdk msg");
-        if (msg.type === "result" && msg.session_id) {
-          deps.store.setSession(threadId, msg.session_id);
+        if (msg.type === "assistant") {
+          for (const block of msg.message.content) {
+            if (block.type === "tool_use") {
+              log.info({ threadId, tool: block.name }, "agent: tool call");
+            }
+          }
+        } else if (msg.type === "result") {
+          log.info({ threadId, sessionId: msg.session_id, numTurns: msg.num_turns, costUsd: (msg as any).total_cost_usd }, "agent: turn done");
+          if (msg.session_id) deps.store.setSession(threadId, msg.session_id);
         }
       }
-      log.info({ threadId }, "agent: query complete");
     });
   }
 

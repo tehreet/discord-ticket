@@ -32,42 +32,47 @@ export function createTicketsServer(deps: ToolDeps) {
     tools: [
       tool(
         "interview_reply",
-        "Post a plain-text reply in the thread during interview. Short (1-3 sentences). If current phase is 'new', this automatically transitions it to 'interviewing'.",
-        { thread_id: z.string(), content: z.string().min(1).max(2000) },
-        async ({ thread_id, content }) => {
-          await discord.postMessage(thread_id, content);
-          if (store.getPhase(thread_id) === "new") store.setPhase(thread_id, "interviewing");
+        "Post a plain-text reply in the current Discord thread. Short (1-3 sentences). The thread is inferred from conversation context — do not pass any thread ID. If current phase is 'new', this automatically transitions it to 'interviewing'.",
+        { content: z.string().min(1).max(2000) },
+        async ({ content }) => {
+          const tid = currentThreadId();
+          if (!tid) throw new Error("No active thread for this tool call");
+          await discord.postMessage(tid, content);
+          if (store.getPhase(tid) === "new") store.setPhase(tid, "interviewing");
           return ok("Reply posted.");
         }
       ),
       tool(
         "present_draft",
-        "Post the drafted GitHub issue as a card with Approve/Edit/Reject buttons. Transitions phase to 'awaiting_approval'. Replaces any prior draft.",
+        "Post the drafted GitHub issue in the current Discord thread as a card with Approve/Edit/Reject buttons. The thread is inferred from conversation context — do not pass any thread ID. Transitions phase to 'awaiting_approval'. Replaces any prior draft.",
         {
-          thread_id: z.string(),
           title: z.string().min(1).max(100),
           body: z.string().min(1),
           suggested_labels: z.array(z.string()).default([]),
         },
-        async ({ thread_id, title, body, suggested_labels }) => {
+        async ({ title, body, suggested_labels }) => {
+          const tid = currentThreadId();
+          if (!tid) throw new Error("No active thread for this tool call");
           const draft = { title, body, labels: suggested_labels };
-          store.setDraft(thread_id, draft);
-          await discord.postDraft(thread_id, draft);
-          store.setPhase(thread_id, "awaiting_approval");
+          store.setDraft(tid, draft);
+          await discord.postDraft(tid, draft);
+          store.setPhase(tid, "awaiting_approval");
           try {
             const readyId = await tags.idFor("ready-to-file");
-            await discord.applyTag(thread_id, readyId);
+            await discord.applyTag(tid, readyId);
           } catch (err) { log.warn({ err }, "failed to apply ready-to-file tag"); }
           return ok("Draft posted. Phase=awaiting_approval.");
         }
       ),
       tool(
         "apply_tag",
-        "Apply a forum tag to the thread. Valid tag names match the configured forum channel (e.g. 'needs-info', 'ready-to-file', 'filed', 'duplicate', 'already-done', 'wont-do').",
-        { thread_id: z.string(), tag_name: z.string() },
-        async ({ thread_id, tag_name }) => {
+        "Apply a forum tag to the current Discord thread. The thread is inferred from conversation context — do not pass any thread ID. Valid tag names: 'needs-info', 'ready-to-file', 'filed', 'duplicate', 'already-done', 'wont-do'.",
+        { tag_name: z.string() },
+        async ({ tag_name }) => {
+          const tid = currentThreadId();
+          if (!tid) throw new Error("No active thread for this tool call");
           const id = await tags.idFor(tag_name);
-          await discord.applyTag(thread_id, id);
+          await discord.applyTag(tid, id);
           return ok(`Applied tag '${tag_name}'.`);
         }
       ),
@@ -107,10 +112,12 @@ export function createTicketsServer(deps: ToolDeps) {
       ),
       tool(
         "close_thread",
-        "Archive + lock the Discord thread. Call this after 'filed', 'duplicate', 'already-done', or 'wont-do'. Terminal action.",
-        { thread_id: z.string() },
-        async ({ thread_id }) => {
-          await discord.closeThread(thread_id);
+        "Archive + lock the current Discord thread. The thread is inferred from conversation context — do not pass any thread ID. Call this after 'filed', 'duplicate', 'already-done', or 'wont-do'. Terminal action.",
+        { reason: z.string().min(1).describe("Brief reason for closing, e.g. 'filed as #42' or 'duplicate of #47'") },
+        async ({ reason: _reason }) => {
+          const tid = currentThreadId();
+          if (!tid) throw new Error("No active thread for this tool call");
+          await discord.closeThread(tid);
           return ok("Thread closed.");
         }
       ),
