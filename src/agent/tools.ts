@@ -101,9 +101,15 @@ export function createTicketsServer(deps: ToolDeps) {
           // Runner sets AsyncLocalStorage before each query; we read it here.
           const tid = currentThreadId();
           if (!tid) throw new Error("No active thread for this tool call");
-          const phase = store.getPhase(tid);
-          if (phase === null) throw new Error(`Thread ${tid} not found in store`);
-          if (phase !== "approved") throw new Error(`Cannot file in phase '${phase}'`);
+          const row = store.getThread(tid);
+          if (!row) throw new Error(`Thread ${tid} not found in store`);
+          // Idempotent: if we already filed for this thread, return the same URL
+          // rather than creating a duplicate issue.
+          if (row.github_issue_number !== null) {
+            const repo = process.env.GITHUB_REPO;
+            return ok(`https://github.com/${repo}/issues/${row.github_issue_number}`);
+          }
+          if (row.phase !== "approved") throw new Error(`Cannot file in phase '${row.phase}'`);
           const url = await github.createIssue({ title, body, labels });
           const match = url.match(/\/issues\/(\d+)/);
           if (match) store.setIssueNumber(tid, parseInt(match[1]!, 10));
