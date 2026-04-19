@@ -39,6 +39,7 @@ export function createAgentRunner(deps: RunnerDeps) {
     };
 
     await withThreadContext(threadId, async () => {
+      log.info({ threadId, hasSession: sessionId !== null, promptPreview: userMessage.slice(0, 80) }, "agent: starting query");
       for await (const msg of query({
         prompt: userMessage,
         options: {
@@ -52,10 +53,12 @@ export function createAgentRunner(deps: RunnerDeps) {
           },
         },
       })) {
+        log.info({ threadId, msgType: (msg as any).type, msg: JSON.stringify(msg).slice(0, 500) }, "agent: sdk msg");
         if (msg.type === "result" && msg.session_id) {
           deps.store.setSession(threadId, msg.session_id);
         }
       }
+      log.info({ threadId }, "agent: query complete");
     });
   }
 
