@@ -20,7 +20,10 @@ const pullRepo = createRepoPuller({ path: cfg.REPO_CLONE_PATH, exec: bunExec });
 
 const here = dirname(fileURLToPath(import.meta.url));
 const skillPath = join(here, "..", ".claude", "skills", "feature-request-interviewer", "SKILL.md");
-const systemPrompt = loadSkill(skillPath);
+const systemPrompt = `Discord Guild ID: ${cfg.DISCORD_GUILD_ID}
+GitHub Repo: ${cfg.GITHUB_REPO}
+
+` + loadSkill(skillPath);
 
 // Two-phase wiring: Discord client needs enqueue; runner needs poster+tags via tools.
 // Solution: construct runner lazily by passing a mutable `poster` holder.

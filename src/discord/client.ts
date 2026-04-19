@@ -67,8 +67,7 @@ export function createDiscord(deps: ClientDeps) {
     async closeThread(threadId) {
       const ch = await client.channels.fetch(threadId);
       if (!ch?.isThread()) throw new Error(`Channel ${threadId} is not a thread`);
-      await (ch as AnyThreadChannel).setArchived(true);
-      await (ch as AnyThreadChannel).setLocked(true);
+      await (ch as AnyThreadChannel).edit({ archived: true, locked: true });
     },
   };
 
