@@ -1,0 +1,20 @@
+[Unit]
+Description=Discord Ticket Bot (Promptionary)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=joshf
+WorkingDirectory=/home/joshf/discord-ticket
+EnvironmentFile=/home/joshf/discord-ticket/.env
+Environment=PATH=/home/joshf/.bun/bin:/usr/local/bin:/usr/bin:/bin
+Environment=HOME=/home/joshf
+ExecStart=/home/joshf/.bun/bin/bun run src/index.ts
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
