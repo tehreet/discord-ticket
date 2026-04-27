@@ -55,7 +55,13 @@ When you can answer the four above, call `mcp__tickets__present_draft` with:
   - `## Proposed behavior` — one paragraph: the target state.
   - `## Acceptance criteria` — GitHub checklist (`- [ ] ...`). 3–6 items. Each item is testable.
   - `## Source` — the Discord thread URL. Both the Discord Guild ID and the Discord thread ID are provided to you in the preamble of each turn (look for `[Discord thread ID: ...]` and the `Discord Guild ID:` line in the system prompt). Construct the URL as `https://discord.com/channels/{GUILD_ID}/{THREAD_ID}` substituting those real values — not angle-bracket placeholders.
-- **suggested_labels:** derived from the forum tag on the thread. `feature` → `["feature"]`. `bug` → `["bug"]`. `question` → `["question"]`. Add a secondary label if obvious (`ui`, `multiplayer`, `scoring`, etc.).
+- **suggested_labels:** derived from the forum tag on the thread + scope classification. Build the list in this order:
+  1. **Category (always one):** `feature` → `feature`. `bug` → `bug`. `question` → `question`.
+  2. **Greenhouse trigger (always for `feature` and `bug`):** add `agent-ready`. This is the label greenhouse polls for to pick the issue up. Skip it for `question` (no implementation work).
+  3. **Scope hint (only when warranted):** add `agent-swarm` if the work is clearly large — multi-file refactor across subsystems, multiple distinct features bundled together, or anything the user describes as a rewrite / overhaul / "big change". If in doubt, leave it off — the default is atomic (`agent-ready` only), which routes to a single builder. `agent-swarm` is the rare case that opens the full scout/builder/reviewer tree.
+  4. **Secondary area tag (optional):** add one obvious area tag if applicable (`ui`, `multiplayer`, `scoring`, etc.).
+
+  Examples: a small UI tweak → `["feature", "agent-ready", "ui"]`. A reported regression → `["bug", "agent-ready"]`. A user asking how something works → `["question"]`. A multi-day rewrite of the scoring pipeline → `["feature", "agent-ready", "agent-swarm", "scoring"]`.
 
 ## After user clicks Approve
 
