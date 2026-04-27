@@ -1,0 +1,30 @@
+## Conversation
+Part of v2 plan task 4 from /home/joshf/promptionary/docs/agent-factory-status.md. The v2 plan said "Greenhouse listens for `agent-ready` AND `agent-swarm` labels. discord-ticket's SKILL.md gets a small section to classify scope and add the right label. Greenhouse keeps coordinator dispatch (single capability per repo per spec); the lead reads the spec and picks atomic-vs-swarm internally."
+
+## Actions
+1. Read SKILL.md to find the existing suggested_labels section.
+2. Inspected greenhouse poller code at /home/joshf/code/greenhouse/src/poller.ts:23-25 — confirmed gh AND-matches multiple --label flags, NOT OR. So `labels: [agent-ready, agent-swarm]` in the greenhouse config would only match issues having BOTH labels.
+3. Pivoted the design: keep `agent-ready` as the trigger, add `agent-swarm` as a scope-hint label that piggy-backs on it. Greenhouse config stays unchanged. The lead reads both labels from the dispatch spec.
+4. Edited SKILL.md `## Draft` -> `suggested_labels:` to spell out the build order: category, agent-ready (for feature/bug), optional agent-swarm (when explicitly large), optional area tag. Added 4 example label sets covering common cases.
+5. Restarted system-scope discord-ticket.service via sudo systemctl. Bot logged "bot started" + "discord ready" cleanly within 2 seconds.
+
+## Errors & Mistakes
+None during this commit. (For session-level errors involving the git-push hook see the prior promptionary commit notes on PR #99.)
+
+## Dead Ends
+- Initially considered modifying greenhouse to OR-match labels. Rejected because: (a) it's a separate repo, separate ship cycle, (b) the same effect is achievable by always pairing agent-swarm with agent-ready.
+- Considered configuring greenhouse with two repo entries (one per label) pointing at the same project_root. Rejected because of duplicate-ingestion risk if an issue ever ended up with both labels — and the design here always emits both labels for swarm-scope work, which would have been pathological.
+
+## Hints for Future Agents
+- SKILL.md is loaded ONCE at bot startup via /home/joshf/discord-ticket/src/index.ts:23 calling loadSkill(skillPath). Any edit requires a service restart (`sudo systemctl restart discord-ticket`) before it takes effect. Do NOT just edit the file and assume it's live.
+- The bot is system-scope (/etc/systemd/system/discord-ticket.service), not user-scope. `systemctl --user status discord-ticket` returns "Unit could not be found" — that's expected, use plain `systemctl status discord-ticket`.
+- Bot user is "House MD#3486" per discord-ready log line.
+- The SKILL.md `interview_reply` audience is non-technical (player friends and family), so the bot must not leak label names like "agent-swarm" into outgoing Discord replies. The labels go on the GitHub issue body, not the chat.
+
+## Codebase Discoveries
+- /home/joshf/discord-ticket/.claude/skills/feature-request-interviewer/SKILL.md is the live skill file. The `.claude/skills/` directory in this repo is shipped as part of the bot install, not a Claude Code agent definition.
+- Greenhouse spec format (from /home/joshf/code/greenhouse/src/dispatcher.ts:39-78): every dispatched run gets `## Labels` block listing all GitHub labels on the source issue. So leads can read `agent-swarm` straight from `.greenhouse/<seedsId>-spec.md` without needing extra plumbing.
+
+## Open Questions
+- Will the bot accept `agent-swarm` reliably as a string label, or does it need the label to be pre-registered in the GitHub repo's label set? (GitHub auto-creates labels on first use via the issues API, so probably fine — but worth verifying when the first agent-swarm issue lands.)
+- Should `question` ever get `agent-ready`? Current rule says no (questions don't get implementation work). If a user files a "how does X work" question they want greenhouse to research, this rule blocks it. Acceptable for now.
